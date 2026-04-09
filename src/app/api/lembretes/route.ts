@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 
   for (const ag of agendamentos) {
     // O Supabase retorna joins como objeto, mas o tipo inferido pode variar
-    const pet = ag.pet as
+    const pet = ag.pet as unknown as
       | { nome: string; cliente?: { nome?: string; telefone?: string } | null }
       | null;
 
