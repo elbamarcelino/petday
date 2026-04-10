@@ -34,11 +34,11 @@ export async function proxy(request: NextRequest) {
   const isRoot = pathname === "/";
 
   if (!user && isDashboard) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/", request.nextUrl.origin));
   }
 
   if (user && isRoot) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin));
   }
 
   return supabaseResponse;
