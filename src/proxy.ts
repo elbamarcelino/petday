@@ -32,9 +32,13 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    return supabaseResponse;
+  }
 
   if (!user && isDashboard) {
     return NextResponse.redirect(new URL("/", request.nextUrl.origin));
