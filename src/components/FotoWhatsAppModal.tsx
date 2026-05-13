@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { enviarFotoWhatsApp } from '@/app/(dashboard)/dashboard/actions'
+import type { FotoWhatsAppResult } from '@/app/(dashboard)/dashboard/actions'
 import type { Agendamento } from '@/types'
 
 interface Props {
@@ -17,6 +18,7 @@ export function FotoWhatsAppModal({ agendamento, onClose, onSuccess }: Props) {
   const [dragging, setDragging] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [whatsappWarning, setWhatsappWarning] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const petNome = agendamento.pet?.nome ?? 'Pet'
@@ -72,11 +74,10 @@ export function FotoWhatsAppModal({ agendamento, onClose, onSuccess }: Props) {
     if (!foto) return
     setSending(true)
     setSendError(null)
+    setWhatsappWarning(null)
 
-    // 1. Upload da foto para o Storage
     const supabase = createClient()
     const ext = foto.name.split('.').pop() ?? 'jpg'
-    // Bucket: "fotos-pets" — crie-o no Supabase Storage com policy de autenticados
     const path = `agendamentos/${agendamento.id}/${Date.now()}.${ext}`
 
     const { error: storageError } = await supabase.storage
@@ -89,17 +90,22 @@ export function FotoWhatsAppModal({ agendamento, onClose, onSuccess }: Props) {
       return
     }
 
-    // 2. Gerar URL assinada, marcar como concluído e enviar pelo WhatsApp
-    const result = await enviarFotoWhatsApp(
+    const result: FotoWhatsAppResult = await enviarFotoWhatsApp(
       agendamento.id,
       path,
       tutorTelefone,
       mensagemAuto,
     )
 
+    setSending(false)
+
     if (result?.error) {
       setSendError(result.error)
-      setSending(false)
+      return
+    }
+
+    if (result?.whatsappWarning) {
+      setWhatsappWarning(result.whatsappWarning)
       return
     }
 
@@ -217,7 +223,7 @@ export function FotoWhatsAppModal({ agendamento, onClose, onSuccess }: Props) {
 
           {/* Rodapé */}
           <div className="space-y-3 pt-1">
-            {!foto && !sending && (
+            {!foto && !sending && !whatsappWarning && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2 rounded-[var(--radius)]">
                 Selecione uma foto para habilitar o envio.
               </p>
@@ -227,35 +233,50 @@ export function FotoWhatsAppModal({ agendamento, onClose, onSuccess }: Props) {
                 {sendError}
               </p>
             )}
+            {whatsappWarning && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-300 px-3 py-2 rounded-[var(--radius)]">
+                ⚠️ {whatsappWarning}
+              </p>
+            )}
 
-            <div className="flex gap-2">
+            {whatsappWarning ? (
               <button
                 type="button"
-                onClick={onClose}
-                disabled={sending}
-                className="flex-1 py-2.5 border rounded-[var(--radius)] text-sm font-medium hover:bg-[var(--color-muted)] disabled:opacity-50 transition-colors"
+                onClick={onSuccess}
+                className="w-full py-2.5 bg-[var(--color-primary)] text-white rounded-[var(--radius)] text-sm font-semibold hover:opacity-90 transition-opacity"
               >
-                Cancelar
+                Fechar
               </button>
-              <button
-                type="button"
-                onClick={handleEnviar}
-                disabled={!foto || sending}
-                className="flex-1 py-2.5 bg-[#25d366] text-white rounded-[var(--radius)] text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
-              >
-                {sending ? (
-                  <>
-                    <span className="animate-spin inline-block">⏳</span>
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <span>📲</span>
-                    Enviar pelo WhatsApp
-                  </>
-                )}
-              </button>
-            </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={sending}
+                  className="flex-1 py-2.5 border rounded-[var(--radius)] text-sm font-medium hover:bg-[var(--color-muted)] disabled:opacity-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEnviar}
+                  disabled={!foto || sending}
+                  className="flex-1 py-2.5 bg-[#25d366] text-white rounded-[var(--radius)] text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
+                >
+                  {sending ? (
+                    <>
+                      <span className="animate-spin inline-block">⏳</span>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <span>📲</span>
+                      Salvar foto e concluir
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { PetModal } from './PetModal'
 import { excluirPet } from '@/app/(dashboard)/dashboard/actions'
 import type { Pet, Porte, Cliente } from '@/types'
@@ -75,22 +76,24 @@ export function PetsClient({ pets, clientes }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {pets.length > 0 ? (
             pets.map((p) => (
-              <div key={p.id} className="bg-[var(--color-card)] rounded-2xl p-5 shadow-sm border hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-3">
-                  <span className="text-3xl">{petEmoji(p.especie)}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold truncate">{p.nome}</p>
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${porteBadge[p.porte]}`}>
-                        {porteLabel[p.porte]}
-                      </span>
+              <div key={p.id} className="bg-[var(--color-card)] rounded-2xl shadow-sm border hover:shadow-md transition-shadow overflow-hidden">
+                <Link href={`/dashboard/pets/${p.id}`} className="block p-5 pb-4 hover:bg-[var(--color-muted)]/40 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl">{petEmoji(p.especie)}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold truncate">{p.nome}</p>
+                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${porteBadge[p.porte]}`}>
+                          {porteLabel[p.porte]}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 capitalize">{p.especie}{p.raca ? ` • ${p.raca}` : ''}</p>
+                      <p className="text-xs text-gray-400 mt-1">Tutor: {p.cliente?.nome}</p>
                     </div>
-                    <p className="text-xs text-gray-500 capitalize">{p.especie}{p.raca ? ` • ${p.raca}` : ''}</p>
-                    <p className="text-xs text-gray-400 mt-1">Tutor: {p.cliente?.nome}</p>
                   </div>
-                </div>
+                </Link>
 
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t">
+                <div className="flex items-center gap-2 px-5 pb-4 pt-3 border-t">
                   <button
                     onClick={() => { setDeleteError(null); setEditing(p) }}
                     className="flex-1 py-1.5 text-xs font-medium border rounded-[var(--radius)] hover:bg-[var(--color-muted)] transition-colors"

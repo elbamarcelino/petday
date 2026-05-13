@@ -47,6 +47,7 @@ export interface Agendamento {
   status: StatusAgendamento;
   observacoes?: string;
   preco_cobrado: number;
+  foto_path?: string;
   created_at: string;
   pet?: Pet & { cliente?: Pick<Cliente, "nome" | "telefone"> };
   agendamento_servicos?: AgendamentoServico[];

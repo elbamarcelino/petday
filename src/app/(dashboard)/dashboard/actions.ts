@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 export type ActionState = { error?: string; success?: boolean } | null
+export type FotoWhatsAppResult = { error?: string; success?: boolean; whatsappWarning?: string } | null
 
 // ─── CLIENTES ────────────────────────────────────────────────────
 
@@ -259,55 +260,54 @@ export async function enviarFotoWhatsApp(
   storagePath: string,
   _telefone: string,
   mensagem: string,
-): Promise<ActionState> {
+): Promise<FotoWhatsAppResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // 1. Buscar telefone do cliente diretamente no banco (fonte confiável)
-  const { data: agendamento, error: agendamentoError } = await supabase
-    .from('agendamentos')
-    .select('pet:pets(cliente:clientes(telefone))')
-    .eq('id', agendamentoId)
-    .single()
-  if (agendamentoError || !agendamento) {
-    return { error: `Erro ao buscar agendamento: ${agendamentoError?.message ?? 'não encontrado'}` }
-  }
-  const pet = agendamento.pet as { cliente?: { telefone?: string } } | null
-  const telefone = pet?.cliente?.telefone ?? ''
-
-  // 2. URL assinada (5 min) — funciona com bucket público ou privado
-  const { data: signed, error: signedError } = await supabase.storage
-    .from('fotos-pets')
-    .createSignedUrl(storagePath, 300)
-  if (signedError || !signed) {
-    return { error: `Erro ao gerar URL da foto: ${signedError?.message ?? 'desconhecido'}` }
-  }
-
-  // 3. Marcar como concluído
+  // 1. Marcar como concluído e registrar o caminho da foto (etapa crítica)
   const { error: statusError } = await supabase
     .from('agendamentos')
-    .update({ status: 'concluido' })
+    .update({ status: 'concluido', foto_path: storagePath })
     .eq('id', agendamentoId)
   if (statusError) return { error: statusError.message }
 
-  // 4. Enviar via Z-API
-  const instanceId = process.env.ZAPI_INSTANCE_ID
-  const token = process.env.ZAPI_TOKEN
-  const clientToken = process.env.ZAPI_CLIENT_TOKEN
-  if (!instanceId || !token || !clientToken) {
-    return { error: 'Credenciais Z-API não configuradas (ZAPI_INSTANCE_ID / ZAPI_TOKEN / ZAPI_CLIENT_TOKEN).' }
-  }
+  revalidatePath('/dashboard/agendamentos')
 
-  const telefoneFormatado = formatarTelefoneZAPI(telefone)
-  if (!telefoneFormatado) {
-    return { error: `Telefone inválido: "${telefone}". Corrija o cadastro do cliente.` }
-  }
-
-  const zapiUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-image`
-  let response: Response
+  // 2. Tentar enviar pelo WhatsApp (etapa não-crítica — falha não bloqueia)
   try {
-    response = await fetch(zapiUrl, {
+    const { data: agendamento, error: agendamentoError } = await supabase
+      .from('agendamentos')
+      .select('pet:pets(cliente:clientes(telefone))')
+      .eq('id', agendamentoId)
+      .single()
+    if (agendamentoError || !agendamento) {
+      return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp.' }
+    }
+    const pet = agendamento.pet as { cliente?: { telefone?: string } } | null
+    const telefone = pet?.cliente?.telefone ?? ''
+
+    const { data: signed, error: signedError } = await supabase.storage
+      .from('fotos-pets')
+      .createSignedUrl(storagePath, 300)
+    if (signedError || !signed) {
+      return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp.' }
+    }
+
+    const instanceId = process.env.ZAPI_INSTANCE_ID
+    const token = process.env.ZAPI_TOKEN
+    const clientToken = process.env.ZAPI_CLIENT_TOKEN
+    if (!instanceId || !token || !clientToken) {
+      return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp (Z-API não configurado).' }
+    }
+
+    const telefoneFormatado = formatarTelefoneZAPI(telefone)
+    if (!telefoneFormatado) {
+      return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (telefone inválido: "${telefone}").` }
+    }
+
+    const zapiUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-image`
+    const response = await fetch(zapiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -319,15 +319,14 @@ export async function enviarFotoWhatsApp(
         caption: mensagem,
       }),
     })
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (Z-API ${response.status}: ${body}).` }
+    }
   } catch (err) {
-    return { error: `Falha de rede ao chamar Z-API: ${err instanceof Error ? err.message : String(err)}` }
+    return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (${err instanceof Error ? err.message : String(err)}).` }
   }
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    return { error: `Z-API respondeu ${response.status}: ${body}` }
-  }
-
-  revalidatePath('/dashboard/agendamentos')
   return { success: true }
 }
