@@ -167,7 +167,7 @@ export default async function PetDetailPage({ params }: Props) {
                     {formatarData(ag.data_hora)}
                   </p>
                   <p className="text-white/70 text-[10px] truncate">
-                    {(ag.agendamento_servicos as { servico?: { nome: string } }[])
+                    {(ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
                       ?.map((as) => as.servico?.nome)
                       .filter(Boolean)
                       .join(', ')}
@@ -195,7 +195,7 @@ export default async function PetDetailPage({ params }: Props) {
         ) : (
           <div className="flex flex-col gap-3">
             {agendamentosComUrl.map((ag) => {
-              const servicos = (ag.agendamento_servicos as { servico?: { nome: string } }[])
+              const servicos = (ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
                 ?.map((as) => as.servico?.nome)
                 .filter(Boolean)
                 .join(', ') ?? '—'
