@@ -1,10 +1,9 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cadastrarPetshop } from './actions'
-import type { CadastroResult } from './actions'
 
 function gerarSlug(nome: string): string {
   return nome
@@ -17,14 +16,36 @@ function gerarSlug(nome: string): string {
 
 export default function CadastroPage() {
   const router = useRouter()
-  const [state, action, pending] = useActionState<CadastroResult, FormData>(
-    cadastrarPetshop,
-    null
-  )
-  const [slugEditado, setSlugEditado] = useState(false)
-  const [slug, setSlug] = useState('')
+  const [isPending, startTransition] = useTransition()
 
-  if (state?.success) {
+  const [nomePetshop, setNomePetshop] = useState('')
+  const [slug, setSlug] = useState('')
+  const [slugEditado, setSlugEditado] = useState(false)
+  const [nomeDono, setNomeDono] = useState('')
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  function handleNomePetshop(value: string) {
+    setNomePetshop(value)
+    if (!slugEditado) setSlug(gerarSlug(value))
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    startTransition(async () => {
+      const result = await cadastrarPetshop({ nomePetshop, slug, nomeDono, email, senha })
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setSuccess(true)
+      }
+    })
+  }
+
+  if (success) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
         <div className="w-full max-w-md bg-[var(--color-card)] rounded-2xl shadow-lg p-8 text-center space-y-4">
@@ -53,7 +74,7 @@ export default function CadastroPage() {
           <p className="text-sm text-gray-500 mt-1">Cadastre seu petshop</p>
         </div>
 
-        <form action={action} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <fieldset className="space-y-3">
             <legend className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">
               Dados do petshop
@@ -64,12 +85,10 @@ export default function CadastroPage() {
                 Nome do petshop *
               </label>
               <input
-                name="nome_petshop"
                 type="text"
                 required
-                onChange={(e) => {
-                  if (!slugEditado) setSlug(gerarSlug(e.target.value))
-                }}
+                value={nomePetshop}
+                onChange={(e) => handleNomePetshop(e.target.value)}
                 className="w-full px-4 py-2.5 border rounded-[var(--radius)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] bg-white"
                 placeholder="Ex: Pet Feliz"
               />
@@ -84,15 +103,10 @@ export default function CadastroPage() {
                   /agendar/
                 </span>
                 <input
-                  name="slug"
                   type="text"
                   required
-                  pattern="[a-z0-9-]+"
                   value={slug}
-                  onChange={(e) => {
-                    setSlug(e.target.value)
-                    setSlugEditado(true)
-                  }}
+                  onChange={(e) => { setSlug(e.target.value); setSlugEditado(true) }}
                   className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-white"
                   placeholder="pet-feliz"
                 />
@@ -113,9 +127,10 @@ export default function CadastroPage() {
                 Seu nome *
               </label>
               <input
-                name="nome_dono"
                 type="text"
                 required
+                value={nomeDono}
+                onChange={(e) => setNomeDono(e.target.value)}
                 className="w-full px-4 py-2.5 border rounded-[var(--radius)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] bg-white"
                 placeholder="Nome completo"
               />
@@ -126,9 +141,10 @@ export default function CadastroPage() {
                 E-mail *
               </label>
               <input
-                name="email"
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 border rounded-[var(--radius)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] bg-white"
                 placeholder="seu@email.com"
               />
@@ -139,28 +155,29 @@ export default function CadastroPage() {
                 Senha *
               </label>
               <input
-                name="senha"
                 type="password"
                 required
                 minLength={6}
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
                 className="w-full px-4 py-2.5 border rounded-[var(--radius)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] bg-white"
                 placeholder="Mínimo 6 caracteres"
               />
             </div>
           </fieldset>
 
-          {state?.error && (
+          {error && (
             <p className="text-sm text-[var(--color-danger)] bg-red-50 px-3 py-2 rounded-[var(--radius)]">
-              {state.error}
+              {error}
             </p>
           )}
 
           <button
             type="submit"
-            disabled={pending}
+            disabled={isPending}
             className="w-full py-2.5 bg-[var(--color-primary)] text-white rounded-[var(--radius)] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {pending ? 'Criando...' : 'Criar petshop'}
+            {isPending ? 'Criando...' : 'Criar petshop'}
           </button>
         </form>
 

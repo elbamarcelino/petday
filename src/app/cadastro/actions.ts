@@ -4,15 +4,20 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export type CadastroResult = { error?: string; success?: boolean } | null
 
-export async function cadastrarPetshop(
-  _prev: CadastroResult,
-  formData: FormData
-): Promise<CadastroResult> {
-  const nomePetshop = (formData.get('nome_petshop') as string).trim()
-  const slug = (formData.get('slug') as string).trim().toLowerCase()
-  const nomeDono = (formData.get('nome_dono') as string).trim()
-  const email = (formData.get('email') as string).trim()
-  const senha = formData.get('senha') as string
+type DadosCadastro = {
+  nomePetshop: string
+  slug: string
+  nomeDono: string
+  email: string
+  senha: string
+}
+
+export async function cadastrarPetshop(dados: DadosCadastro): Promise<CadastroResult> {
+  const nomePetshop = dados.nomePetshop.trim()
+  const slug = dados.slug.trim().toLowerCase()
+  const nomeDono = dados.nomeDono.trim()
+  const email = dados.email.trim()
+  const senha = dados.senha
 
   if (!nomePetshop || !slug || !nomeDono || !email || !senha) {
     return { error: 'Preencha todos os campos.' }
