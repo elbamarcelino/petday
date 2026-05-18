@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 export type PublicBookingResult = { error?: string; success?: boolean } | null
 
 type DadosAgendamento = {
+  petshopId: string
   nomeCliente: string
   telefone: string
   nomePet: string
@@ -36,7 +37,8 @@ async function enviarConfirmacaoWhatsApp(
   nomePet: string,
   nomeServicos: string[],
   dataHora: string,
-  precoTotal: number
+  precoTotal: number,
+  petshopNome: string,
 ): Promise<void> {
   const instanceId = process.env.ZAPI_INSTANCE_ID
   const token = process.env.ZAPI_TOKEN
@@ -53,7 +55,6 @@ async function enviarConfirmacaoWhatsApp(
   const dataFormatada = `${dd}/${mm}/${yyyy} às ${time}`
 
   const nomePrimeiro = nomeCliente.trim().split(' ')[0]
-  const petshopNome = process.env.NEXT_PUBLIC_PETSHOP_NOME ?? 'a petshop'
   const servicos = nomeServicos.join(', ')
   const preco = precoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -96,12 +97,21 @@ export async function criarAgendamentoPublico(
   if (!dados.nomeCliente.trim()) return { error: 'Informe seu nome.' }
   if (!dados.nomePet.trim()) return { error: 'Informe o nome do pet.' }
 
-  // Look up or create client by phone
+  // Busca nome do petshop para a mensagem do WhatsApp
+  const { data: petshop } = await supabase
+    .from('petshops')
+    .select('nome')
+    .eq('id', dados.petshopId)
+    .single()
+  const petshopNome = petshop?.nome ?? 'a petshop'
+
+  // Busca ou cria cliente dentro do petshop
   let clienteId: string
 
   const { data: clienteExistente } = await supabase
     .from('clientes')
     .select('id')
+    .eq('petshop_id', dados.petshopId)
     .eq('telefone', telefoneLimpo)
     .maybeSingle()
 
@@ -111,6 +121,7 @@ export async function criarAgendamentoPublico(
     const { data: novoCliente, error: erroCliente } = await supabase
       .from('clientes')
       .insert({
+        petshop_id: dados.petshopId,
         nome: dados.nomeCliente.trim(),
         email: `${telefoneLimpo}@petday.agendamento`,
         telefone: telefoneLimpo,
@@ -124,12 +135,13 @@ export async function criarAgendamentoPublico(
     clienteId = novoCliente.id
   }
 
-  // Look up or create pet by name for this client
+  // Busca ou cria pet dentro do petshop
   let petId: string
 
   const { data: petExistente } = await supabase
     .from('pets')
     .select('id')
+    .eq('petshop_id', dados.petshopId)
     .eq('cliente_id', clienteId)
     .ilike('nome', dados.nomePet.trim())
     .maybeSingle()
@@ -140,6 +152,7 @@ export async function criarAgendamentoPublico(
     const { data: novoPet, error: erroPet } = await supabase
       .from('pets')
       .insert({
+        petshop_id: dados.petshopId,
         cliente_id: clienteId,
         nome: dados.nomePet.trim(),
         especie: dados.especie,
@@ -155,10 +168,11 @@ export async function criarAgendamentoPublico(
     petId = novoPet.id
   }
 
-  // Create appointment
+  // Cria agendamento
   const { data: agendamento, error: erroAg } = await supabase
     .from('agendamentos')
     .insert({
+      petshop_id: dados.petshopId,
       pet_id: petId,
       data_hora: dados.dataHora,
       status: 'pendente',
@@ -172,7 +186,7 @@ export async function criarAgendamentoPublico(
     return { error: 'Erro ao criar agendamento. Tente novamente.' }
   }
 
-  // Link services to appointment
+  // Vincula serviços
   const { error: erroServicos } = await supabase
     .from('agendamento_servicos')
     .insert(
@@ -186,26 +200,27 @@ export async function criarAgendamentoPublico(
     return { error: 'Erro ao vincular serviços. Tente novamente.' }
   }
 
-  // Enviar confirmação via WhatsApp (best-effort, não bloqueia o sucesso)
   await enviarConfirmacaoWhatsApp(
     dados.telefone,
     dados.nomeCliente,
     dados.nomePet,
     dados.nomeServicos,
     dados.dataHora,
-    dados.precoTotal
+    dados.precoTotal,
+    petshopNome,
   )
 
   revalidatePath('/dashboard/agendamentos')
   return { success: true }
 }
 
-export async function getHorariosOcupados(data: string): Promise<string[]> {
+export async function getHorariosOcupados(petshopId: string, data: string): Promise<string[]> {
   const supabase = createAdminClient()
 
   const { data: agendamentos } = await supabase
     .from('agendamentos')
     .select('data_hora')
+    .eq('petshop_id', petshopId)
     .gte('data_hora', `${data}T00:00:00`)
     .lte('data_hora', `${data}T23:59:59`)
     .not('status', 'eq', 'cancelado')

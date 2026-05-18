@@ -2,8 +2,26 @@ export type TipoServico = "banho" | "tosa" | "banho_e_tosa" | "consulta" | "vaci
 export type StatusAgendamento = "pendente" | "confirmado" | "em_andamento" | "concluido" | "cancelado";
 export type Porte = "pequeno" | "medio" | "grande";
 
+export interface Petshop {
+  id: string;
+  nome: string;
+  slug: string;
+  plano: string;
+  ativo: boolean;
+  created_at: string;
+}
+
+export interface Usuario {
+  id: string;
+  petshop_id: string;
+  nome: string;
+  role: string;
+  created_at: string;
+}
+
 export interface Cliente {
   id: string;
+  petshop_id: string;
   nome: string;
   email: string;
   telefone: string;
@@ -13,6 +31,7 @@ export interface Cliente {
 
 export interface Pet {
   id: string;
+  petshop_id: string;
   cliente_id: string;
   nome: string;
   especie: string;
@@ -26,6 +45,7 @@ export interface Pet {
 
 export interface Servico {
   id: string;
+  petshop_id: string;
   nome: string;
   tipo: TipoServico;
   descricao?: string;
@@ -42,6 +62,7 @@ export interface AgendamentoServico {
 
 export interface Agendamento {
   id: string;
+  petshop_id: string;
   pet_id: string;
   data_hora: string;
   status: StatusAgendamento;

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getUsuario } from '@/lib/petshop'
 
 export type ActionState = { error?: string; success?: boolean } | null
 export type FotoWhatsAppResult = { error?: string; success?: boolean; whatsappWarning?: string } | null
@@ -9,11 +10,12 @@ export type FotoWhatsAppResult = { error?: string; success?: boolean; whatsappWa
 // ─── CLIENTES ────────────────────────────────────────────────────
 
 export async function criarCliente(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('clientes').insert({
+    petshop_id: usuario.petshop_id,
     nome: formData.get('nome') as string,
     email: formData.get('email') as string,
     telefone: formData.get('telefone') as string,
@@ -26,10 +28,10 @@ export async function criarCliente(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function editarCliente(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('clientes').update({
     nome: formData.get('nome') as string,
     email: formData.get('email') as string,
@@ -43,10 +45,10 @@ export async function editarCliente(id: string, _prev: ActionState, formData: Fo
 }
 
 export async function excluirCliente(id: string): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('clientes').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/clientes')
@@ -56,11 +58,12 @@ export async function excluirCliente(id: string): Promise<ActionState> {
 // ─── PETS ────────────────────────────────────────────────────────
 
 export async function criarPet(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('pets').insert({
+    petshop_id: usuario.petshop_id,
     cliente_id: formData.get('cliente_id') as string,
     nome: formData.get('nome') as string,
     especie: formData.get('especie') as string,
@@ -76,10 +79,10 @@ export async function criarPet(_prev: ActionState, formData: FormData): Promise<
 }
 
 export async function editarPet(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('pets').update({
     cliente_id: formData.get('cliente_id') as string,
     nome: formData.get('nome') as string,
@@ -96,10 +99,10 @@ export async function editarPet(id: string, _prev: ActionState, formData: FormDa
 }
 
 export async function excluirPet(id: string): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('pets').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/pets')
@@ -109,11 +112,12 @@ export async function excluirPet(id: string): Promise<ActionState> {
 // ─── SERVIÇOS ────────────────────────────────────────────────────
 
 export async function criarServico(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('servicos').insert({
+    petshop_id: usuario.petshop_id,
     nome: formData.get('nome') as string,
     tipo: formData.get('tipo') as string,
     descricao: (formData.get('descricao') as string) || null,
@@ -128,10 +132,10 @@ export async function criarServico(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function editarServico(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('servicos').update({
     nome: formData.get('nome') as string,
     tipo: formData.get('tipo') as string,
@@ -147,10 +151,10 @@ export async function editarServico(id: string, _prev: ActionState, formData: Fo
 }
 
 export async function excluirServico(id: string): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('servicos').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/servicos')
@@ -160,16 +164,17 @@ export async function excluirServico(id: string): Promise<ActionState> {
 // ─── AGENDAMENTOS ────────────────────────────────────────────────
 
 export async function criarAgendamento(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
   const servicoIds = formData.getAll('servico_ids') as string[]
   if (servicoIds.length === 0) return { error: 'Selecione ao menos um serviço.' }
 
+  const supabase = await createClient()
   const { data: agendamento, error } = await supabase
     .from('agendamentos')
     .insert({
+      petshop_id: usuario.petshop_id,
       pet_id: formData.get('pet_id') as string,
       data_hora: formData.get('data_hora') as string,
       status: formData.get('status') as string,
@@ -195,13 +200,13 @@ export async function criarAgendamento(_prev: ActionState, formData: FormData): 
 }
 
 export async function editarAgendamento(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
   const servicoIds = formData.getAll('servico_ids') as string[]
   if (servicoIds.length === 0) return { error: 'Selecione ao menos um serviço.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('agendamentos').update({
     pet_id: formData.get('pet_id') as string,
     data_hora: formData.get('data_hora') as string,
@@ -224,10 +229,10 @@ export async function editarAgendamento(id: string, _prev: ActionState, formData
 }
 
 export async function excluirAgendamento(id: string): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('agendamentos').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/agendamentos')
@@ -235,10 +240,10 @@ export async function excluirAgendamento(id: string): Promise<ActionState> {
 }
 
 export async function atualizarStatusAgendamento(id: string, status: string): Promise<ActionState> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
+  const supabase = await createClient()
   const { error } = await supabase.from('agendamentos').update({ status }).eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/agendamentos')
@@ -248,9 +253,7 @@ export async function atualizarStatusAgendamento(id: string, status: string): Pr
 function formatarTelefoneZAPI(telefone: string): string | null {
   const digits = telefone.replace(/\D/g, '')
   if (!digits) return null
-  // Já com DDI 55: 55 + DDD (2) + número (8-9) = 12 ou 13 dígitos
   if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits
-  // Sem DDI: DDD (2) + número (8-9) = 10 ou 11 dígitos
   if (digits.length === 10 || digits.length === 11) return `55${digits}`
   return null
 }
@@ -261,11 +264,11 @@ export async function enviarFotoWhatsApp(
   _telefone: string,
   mensagem: string,
 ): Promise<FotoWhatsAppResult> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
 
-  // 1. Marcar como concluído e registrar o caminho da foto (etapa crítica)
+  const supabase = await createClient()
+
   const { error: statusError } = await supabase
     .from('agendamentos')
     .update({ status: 'concluido', foto_path: storagePath })
@@ -274,7 +277,6 @@ export async function enviarFotoWhatsApp(
 
   revalidatePath('/dashboard/agendamentos')
 
-  // 2. Tentar enviar pelo WhatsApp (etapa não-crítica — falha não bloqueia)
   try {
     const { data: agendamento, error: agendamentoError } = await supabase
       .from('agendamentos')

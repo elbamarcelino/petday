@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getUsuario } from "@/lib/petshop";
 import LogoutButton from "@/components/LogoutButton";
 
 const navItems = [
@@ -16,12 +16,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const usuario = await getUsuario();
 
-  if (!user) {
+  if (!usuario) {
     redirect("/login");
   }
 
@@ -34,7 +31,10 @@ export default async function DashboardLayout({
             <span className="text-2xl">🐾</span>
             <span className="text-xl font-bold text-[var(--color-primary)]">PetDay</span>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{user.email}</p>
+          <p className="text-sm font-medium text-[var(--color-foreground)] mt-1 truncate">
+            {usuario.petshop.nome}
+          </p>
+          <p className="text-xs text-gray-400 truncate">/{usuario.petshop.slug}</p>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -50,7 +50,8 @@ export default async function DashboardLayout({
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t">
+        <div className="px-3 py-4 border-t space-y-2">
+          <p className="px-3 text-xs text-gray-400 truncate">{usuario.nome}</p>
           <LogoutButton />
         </div>
       </aside>

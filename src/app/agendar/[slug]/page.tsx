@@ -6,23 +6,27 @@ import { AgendarClient } from './AgendarClient'
 export const dynamic = 'force-dynamic'
 
 interface Props {
-  params: Promise<{ petshopId: string }>
+  params: Promise<{ slug: string }>
 }
 
 export default async function AgendarPage({ params }: Props) {
-  const { petshopId } = await params
-
-  // Validate slug against env var (if configured).
-  // If NEXT_PUBLIC_BOOKING_SLUG is not set, any slug works (dev-friendly).
-  const slug = process.env.NEXT_PUBLIC_BOOKING_SLUG
-  if (slug && petshopId !== slug) {
-    notFound()
-  }
-
+  const { slug } = await params
   const supabase = createAdminClient()
+
+  // Busca petshop pelo slug
+  const { data: petshop } = await supabase
+    .from('petshops')
+    .select('id, nome')
+    .eq('slug', slug)
+    .eq('ativo', true)
+    .single()
+
+  if (!petshop) notFound()
+
   const { data: servicos } = await supabase
     .from('servicos')
     .select('*')
+    .eq('petshop_id', petshop.id)
     .eq('ativo', true)
     .order('preco', { ascending: true })
 
@@ -39,13 +43,13 @@ export default async function AgendarPage({ params }: Props) {
     )
   }
 
-  const petshopNome = process.env.NEXT_PUBLIC_PETSHOP_NOME ?? 'PetDay'
   const pixKey = process.env.NEXT_PUBLIC_PIX_KEY ?? null
 
   return (
     <AgendarClient
       servicos={servicos as Servico[]}
-      petshopNome={petshopNome}
+      petshopId={petshop.id}
+      petshopNome={petshop.nome}
       pixKey={pixKey}
     />
   )

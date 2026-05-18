@@ -126,11 +126,12 @@ const TOTAL_STEPS = 4
 
 interface Props {
   servicos: Servico[]
+  petshopId: string
   petshopNome: string
   pixKey: string | null
 }
 
-export function AgendarClient({ servicos, petshopNome, pixKey }: Props) {
+export function AgendarClient({ servicos, petshopId, petshopNome, pixKey }: Props) {
   const [step, setStep] = useState(1)
 
   // Step 1
@@ -175,7 +176,7 @@ export function AgendarClient({ servicos, petshopNome, pixKey }: Props) {
     setSelectedTime('')
     setLoadingSlots(true)
     try {
-      const ocupados = await getHorariosOcupados(date)
+      const ocupados = await getHorariosOcupados(petshopId, date)
       setHorariosOcupados(ocupados)
     } catch {
       setHorariosOcupados([])
@@ -188,6 +189,7 @@ export function AgendarClient({ servicos, petshopNome, pixKey }: Props) {
     setSubmitError('')
     startTransition(async () => {
       const result = await criarAgendamentoPublico({
+        petshopId,
         nomeCliente,
         telefone,
         nomePet,
@@ -213,7 +215,7 @@ export function AgendarClient({ servicos, petshopNome, pixKey }: Props) {
     if (digits.length < 10) return
     setBuscandoCliente(true)
     try {
-      const res = await fetch(`/api/cliente-por-telefone?telefone=${digits}`)
+      const res = await fetch(`/api/cliente-por-telefone?telefone=${digits}&petshopId=${petshopId}`)
       const json = await res.json()
       if (json.nome) {
         setNomeCliente(json.nome)

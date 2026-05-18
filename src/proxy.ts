@@ -5,6 +5,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isDashboard = pathname.startsWith("/dashboard");
   const isRoot = pathname === "/";
+  const isCadastro = pathname === "/cadastro";
 
   // Sem env vars configuradas, deixa o Next.js lidar nativamente
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,10 +42,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user && isDashboard) {
-    return NextResponse.redirect(new URL("/", request.nextUrl.origin));
+    return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
   }
 
-  if (user && isRoot) {
+  if (user && (isRoot || isCadastro)) {
     return NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin));
   }
 
@@ -52,5 +53,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*"],
+  matcher: ["/", "/cadastro", "/dashboard/:path*"],
 };
