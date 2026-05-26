@@ -247,6 +247,7 @@ export async function atualizarStatusAgendamento(id: string, status: string): Pr
   const { error } = await supabase.from('agendamentos').update({ status }).eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard/agendamentos')
+  revalidatePath('/dashboard/fila')
   return { success: true }
 }
 
