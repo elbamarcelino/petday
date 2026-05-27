@@ -16,14 +16,19 @@ export default async function FilaPage({ searchParams }: Props) {
 
   const supabase = await createClient();
 
+  // Brasília é UTC-3: meia-noite local = 03:00 UTC
+  const [y, m, d] = dataFiltro.split("-").map(Number)
+  const inicioDia = new Date(Date.UTC(y, m - 1, d, 3, 0, 0))       // 00:00 BRT
+  const fimDia    = new Date(Date.UTC(y, m - 1, d + 1, 3, 0, 0))   // 00:00 BRT do dia seguinte
+
   const { data: agendamentos } = await supabase
     .from("agendamentos")
     .select(
       `*, pet:pets(nome, especie, porte, cliente:clientes(nome, telefone)),
        agendamento_servicos(agendamento_id, servico_id, servico:servicos(id, nome, tipo, preco, duracao_minutos, ativo))`
     )
-    .gte("data_hora", `${dataFiltro}T00:00:00`)
-    .lte("data_hora", `${dataFiltro}T23:59:59`)
+    .gte("data_hora", inicioDia.toISOString())
+    .lt("data_hora", fimDia.toISOString())
     .order("data_hora", { ascending: true });
 
   return (
