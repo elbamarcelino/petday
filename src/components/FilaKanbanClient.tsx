@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Agendamento, StatusAgendamento } from '@/types'
 import { atualizarStatusAgendamento } from '@/app/(dashboard)/dashboard/actions'
@@ -82,6 +82,17 @@ export function FilaKanbanClient({ agendamentos: agendamentosIniciais, dataAtual
   const hoje = dataHoje()
   const isHoje = dataAtual === hoje
 
+  // Sincroniza estado local quando o servidor traz dados novos (via router.refresh)
+  useEffect(() => {
+    if (!draggingId) setAgendamentos(agendamentosIniciais)
+  }, [agendamentosIniciais]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Polling a cada 30s para manter o kanban atualizado sem recarregar a página
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 30_000)
+    return () => clearInterval(id)
+  }, [router])
+
   const dataLabel = new Date(dataAtual + 'T12:00:00').toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
@@ -142,6 +153,8 @@ export function FilaKanbanClient({ agendamentos: agendamentosIniciais, dataAtual
       if (result?.error) {
         setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status: statusAnterior } : a)))
         setErro(result.error)
+      } else {
+        router.refresh()
       }
     })
   }
