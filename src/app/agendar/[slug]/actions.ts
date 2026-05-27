@@ -2,7 +2,6 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { enviarTextoWhatsApp } from '@/lib/whatsapp'
 
 export type PublicBookingResult = { error?: string; success?: boolean } | null
 
@@ -21,37 +20,6 @@ type DadosAgendamento = {
   precoTotal: number
 }
 
-async function enviarConfirmacaoWhatsApp(
-  telefone: string,
-  nomeCliente: string,
-  nomePet: string,
-  nomeServicos: string[],
-  dataHora: string,
-  precoTotal: number,
-  petshopNome: string,
-): Promise<void> {
-  const [datePart, timePart] = dataHora.split('T')
-  const [yyyy, mm, dd] = datePart.split('-')
-  const time = timePart.slice(0, 5)
-  const dataFormatada = `${dd}/${mm}/${yyyy} às ${time}`
-
-  const nomePrimeiro = nomeCliente.trim().split(' ')[0]
-  const servicos = nomeServicos.join(', ')
-  const preco = precoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-  const mensagem =
-    `Olá, ${nomePrimeiro}! 🐾\n\n` +
-    `Seu agendamento em *${petshopNome}* está confirmado!\n\n` +
-    `🐕 Pet: ${nomePet}\n` +
-    `✂️ Serviço: ${servicos}\n` +
-    `📅 Data: ${dataFormatada}\n` +
-    `💰 Valor: ${preco}\n\n` +
-    `Até lá! 😊`
-
-  // Falha silenciosa — o agendamento já foi salvo
-  await enviarTextoWhatsApp(telefone, mensagem).catch(() => undefined)
-}
-
 // ─── Server action ────────────────────────────────────────────────────────────
 
 export async function criarAgendamentoPublico(
@@ -64,14 +32,6 @@ export async function criarAgendamentoPublico(
   if (!dados.servicoIds.length) return { error: 'Selecione ao menos um serviço.' }
   if (!dados.nomeCliente.trim()) return { error: 'Informe seu nome.' }
   if (!dados.nomePet.trim()) return { error: 'Informe o nome do pet.' }
-
-  // Busca nome do petshop para a mensagem do WhatsApp
-  const { data: petshop } = await supabase
-    .from('petshops')
-    .select('nome')
-    .eq('id', dados.petshopId)
-    .single()
-  const petshopNome = petshop?.nome ?? 'a petshop'
 
   // Busca ou cria cliente dentro do petshop
   let clienteId: string
@@ -167,16 +127,6 @@ export async function criarAgendamentoPublico(
   if (erroServicos) {
     return { error: 'Erro ao vincular serviços. Tente novamente.' }
   }
-
-  await enviarConfirmacaoWhatsApp(
-    dados.telefone,
-    dados.nomeCliente,
-    dados.nomePet,
-    dados.nomeServicos,
-    dados.dataHora,
-    dados.precoTotal,
-    petshopNome,
-  )
 
   revalidatePath('/dashboard/agendamentos')
   return { success: true }

@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuario } from '@/lib/petshop'
-import { enviarImagemWhatsApp } from '@/lib/whatsapp'
 
 export type ActionState = { error?: string; success?: boolean } | null
 export type FotoWhatsAppResult = { error?: string; success?: boolean; whatsappWarning?: string } | null
@@ -256,7 +255,7 @@ export async function enviarFotoWhatsApp(
   agendamentoId: string,
   storagePath: string,
   _telefone: string,
-  mensagem: string,
+  _mensagem: string,
 ): Promise<FotoWhatsAppResult> {
   const usuario = await getUsuario()
   if (!usuario) return { error: 'Não autenticado.' }
@@ -271,35 +270,6 @@ export async function enviarFotoWhatsApp(
 
   revalidatePath('/dashboard/agendamentos')
   revalidatePath('/dashboard/fila')
-
-  try {
-    const { data: agendamento, error: agendamentoError } = await supabase
-      .from('agendamentos')
-      .select('pet:pets(cliente:clientes(telefone))')
-      .eq('id', agendamentoId)
-      .single()
-    if (agendamentoError || !agendamento) {
-      return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp.' }
-    }
-    const pet = agendamento.pet as { cliente?: { telefone?: string } } | null
-    const telefone = pet?.cliente?.telefone ?? ''
-
-    const { data: signed, error: signedError } = await supabase.storage
-      .from('fotos-pets')
-      .createSignedUrl(storagePath, 300)
-    if (signedError || !signed) {
-      return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp.' }
-    }
-
-    const fileName = storagePath.split('/').pop() ?? 'foto.jpg'
-    const resultado = await enviarImagemWhatsApp(telefone, signed.signedUrl, mensagem, fileName)
-
-    if (!resultado.ok) {
-      return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (${resultado.erro}).` }
-    }
-  } catch (err) {
-    return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (${err instanceof Error ? err.message : String(err)}).` }
-  }
 
   return { success: true }
 }
