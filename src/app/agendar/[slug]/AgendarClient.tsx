@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import type { Servico } from '@/types'
 import { criarAgendamentoPublico, getHorariosOcupados } from './actions'
 
@@ -129,9 +130,10 @@ interface Props {
   petshopId: string
   petshopNome: string
   pixKey: string | null
+  slug: string
 }
 
-export function AgendarClient({ servicos, petshopId, petshopNome, pixKey }: Props) {
+export function AgendarClient({ servicos, petshopId, petshopNome, pixKey, slug }: Props) {
   const [step, setStep] = useState(1)
 
   // Step 1
@@ -275,6 +277,13 @@ export function AgendarClient({ servicos, petshopId, petshopNome, pixKey }: Prop
             <PixCard pixKey={pixKey} />
           </div>
         )}
+
+        <Link
+          href={`/acompanhar/${slug}`}
+          className="w-full max-w-sm py-3.5 rounded-xl font-semibold text-white bg-[var(--color-primary)] flex items-center justify-center gap-2 mb-2"
+        >
+          🔍 Acompanhar meu pet
+        </Link>
 
         <button
           onClick={resetar}

@@ -51,6 +51,7 @@ export default async function AgendarPage({ params }: Props) {
       petshopId={petshop.id}
       petshopNome={petshop.nome}
       pixKey={pixKey}
+      slug={slug}
     />
   )
 }
