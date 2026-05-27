@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuario } from '@/lib/petshop'
+import { enviarImagemWhatsApp } from '@/lib/whatsapp'
 
 export type ActionState = { error?: string; success?: boolean } | null
 export type FotoWhatsAppResult = { error?: string; success?: boolean; whatsappWarning?: string } | null
@@ -251,14 +252,6 @@ export async function atualizarStatusAgendamento(id: string, status: string): Pr
   return { success: true }
 }
 
-function formatarTelefoneZAPI(telefone: string): string | null {
-  const digits = telefone.replace(/\D/g, '')
-  if (!digits) return null
-  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`
-  return null
-}
-
 export async function enviarFotoWhatsApp(
   agendamentoId: string,
   storagePath: string,
@@ -277,6 +270,7 @@ export async function enviarFotoWhatsApp(
   if (statusError) return { error: statusError.message }
 
   revalidatePath('/dashboard/agendamentos')
+  revalidatePath('/dashboard/fila')
 
   try {
     const { data: agendamento, error: agendamentoError } = await supabase
@@ -297,35 +291,11 @@ export async function enviarFotoWhatsApp(
       return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp.' }
     }
 
-    const instanceId = process.env.ZAPI_INSTANCE_ID
-    const token = process.env.ZAPI_TOKEN
-    const clientToken = process.env.ZAPI_CLIENT_TOKEN
-    if (!instanceId || !token || !clientToken) {
-      return { success: true, whatsappWarning: 'Foto salva! Não foi possível enviar pelo WhatsApp (Z-API não configurado).' }
-    }
+    const fileName = storagePath.split('/').pop() ?? 'foto.jpg'
+    const resultado = await enviarImagemWhatsApp(telefone, signed.signedUrl, mensagem, fileName)
 
-    const telefoneFormatado = formatarTelefoneZAPI(telefone)
-    if (!telefoneFormatado) {
-      return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (telefone inválido: "${telefone}").` }
-    }
-
-    const zapiUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-image`
-    const response = await fetch(zapiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Client-Token': clientToken,
-      },
-      body: JSON.stringify({
-        phone: telefoneFormatado,
-        image: signed.signedUrl,
-        caption: mensagem,
-      }),
-    })
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => '')
-      return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (Z-API ${response.status}: ${body}).` }
+    if (!resultado.ok) {
+      return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (${resultado.erro}).` }
     }
   } catch (err) {
     return { success: true, whatsappWarning: `Foto salva! Não foi possível enviar pelo WhatsApp (${err instanceof Error ? err.message : String(err)}).` }

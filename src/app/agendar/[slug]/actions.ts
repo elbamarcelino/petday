@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { enviarTextoWhatsApp } from '@/lib/whatsapp'
 
 export type PublicBookingResult = { error?: string; success?: boolean } | null
 
@@ -20,17 +21,6 @@ type DadosAgendamento = {
   precoTotal: number
 }
 
-// ─── Z-API helpers ────────────────────────────────────────────────────────────
-
-function formatarTelefoneZAPI(telefone: string): string | null {
-  const digits = telefone.replace(/\D/g, '')
-  if (!digits) return null
-  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13))
-    return digits
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`
-  return null
-}
-
 async function enviarConfirmacaoWhatsApp(
   telefone: string,
   nomeCliente: string,
@@ -40,15 +30,6 @@ async function enviarConfirmacaoWhatsApp(
   precoTotal: number,
   petshopNome: string,
 ): Promise<void> {
-  const instanceId = process.env.ZAPI_INSTANCE_ID
-  const token = process.env.ZAPI_TOKEN
-  const clientToken = process.env.ZAPI_CLIENT_TOKEN
-
-  if (!instanceId || !token || !clientToken) return
-
-  const telefoneFormatado = formatarTelefoneZAPI(telefone)
-  if (!telefoneFormatado) return
-
   const [datePart, timePart] = dataHora.split('T')
   const [yyyy, mm, dd] = datePart.split('-')
   const time = timePart.slice(0, 5)
@@ -67,21 +48,8 @@ async function enviarConfirmacaoWhatsApp(
     `💰 Valor: ${preco}\n\n` +
     `Até lá! 😊`
 
-  try {
-    await fetch(
-      `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Client-Token': clientToken,
-        },
-        body: JSON.stringify({ phone: telefoneFormatado, message: mensagem }),
-      }
-    )
-  } catch {
-    // Falha silenciosa — o agendamento já foi salvo
-  }
+  // Falha silenciosa — o agendamento já foi salvo
+  await enviarTextoWhatsApp(telefone, mensagem).catch(() => undefined)
 }
 
 // ─── Server action ────────────────────────────────────────────────────────────

@@ -1,15 +1,6 @@
 import { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-// Converte telefone BR para formato E.164 com DDI 55
-function formatarTelefoneZAPI(telefone: string): string | null {
-  const digits = telefone.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13))
-    return digits;
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-  return null;
-}
+import { enviarTextoWhatsApp } from "@/lib/whatsapp";
 
 // Busca agendamentos com status 'concluido' cuja data_hora foi há exatamente 30 dias.
 // Usa data_hora como referência pois o schema não registra quando o status foi alterado.
@@ -56,61 +47,17 @@ async function enviarLembrete(
   nomeDono: string,
   telefone: string
 ): Promise<ResultadoEnvio> {
-  const telefoneFormatado = formatarTelefoneZAPI(telefone);
-  if (!telefoneFormatado) {
-    return {
-      id: agendamentoId,
-      status: "erro",
-      motivo: `Telefone inválido: "${telefone}"`,
-    };
-  }
-
-  const instanceId = process.env.ZAPI_INSTANCE_ID;
-  const token = process.env.ZAPI_TOKEN;
-  const clientToken = process.env.ZAPI_CLIENT_TOKEN;
-
-  if (!instanceId || !token || !clientToken) {
-    return {
-      id: agendamentoId,
-      status: "erro",
-      motivo: "Credenciais Z-API não configuradas.",
-    };
-  }
-
   const mensagem =
     `Olá, ${nomeDono}! 🐾 Já faz 30 dias desde o último banho do ${nomePet}. ` +
     `Que tal agendar o próximo? Entre em contato conosco para garantir a higiene e o bem-estar do seu pet! 😊`;
 
-  const zapiUrl = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
+  const resultado = await enviarTextoWhatsApp(telefone, mensagem);
 
-  let response: Response;
-  try {
-    response = await fetch(zapiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Client-Token": clientToken,
-      },
-      body: JSON.stringify({ phone: telefoneFormatado, message: mensagem }),
-    });
-  } catch (err) {
-    return {
-      id: agendamentoId,
-      status: "erro",
-      motivo: `Falha de rede: ${err instanceof Error ? err.message : String(err)}`,
-    };
+  if (!resultado.ok) {
+    return { id: agendamentoId, status: "erro", motivo: resultado.erro ?? "Erro desconhecido." };
   }
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    return {
-      id: agendamentoId,
-      status: "erro",
-      motivo: `Z-API ${response.status}: ${body}`,
-    };
-  }
-
-  return { id: agendamentoId, status: "enviado", telefone: telefoneFormatado };
+  return { id: agendamentoId, status: "enviado", telefone };
 }
 
 export async function GET(request: NextRequest) {
