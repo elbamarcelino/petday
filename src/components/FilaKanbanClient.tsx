@@ -149,7 +149,7 @@ export function FilaKanbanClient({ agendamentos: agendamentosIniciais, dataAtual
   const totalAgendamentos = agendamentos.length
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
@@ -209,7 +209,7 @@ export function FilaKanbanClient({ agendamentos: agendamentosIniciais, dataAtual
       )}
 
       {/* Kanban Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+      <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-3 flex-1 min-h-0">
         {COLUNAS.map(({ status, label, headerCor, borderCor, badgeCor }) => {
           const cards = agendamentos.filter((a) => a.status === status)
           const isDragOver = dragOverStatus === status
@@ -217,7 +217,7 @@ export function FilaKanbanClient({ agendamentos: agendamentosIniciais, dataAtual
           return (
             <div
               key={status}
-              className="flex flex-col w-60 flex-shrink-0"
+              className="flex flex-col w-60 flex-shrink-0 min-h-0"
               onDragOver={(e) => handleDragOver(e, status)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, status)}
@@ -232,7 +232,7 @@ export function FilaKanbanClient({ agendamentos: agendamentosIniciais, dataAtual
 
               {/* Drop area */}
               <div
-                className={`flex-1 rounded-b-[var(--radius)] border-x border-b p-2 space-y-2 transition-all min-h-96 ${
+                className={`flex-1 min-h-0 overflow-y-auto rounded-b-[var(--radius)] border-x border-b p-2 space-y-2 transition-all ${
                   isDragOver
                     ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] border-dashed'
                     : 'border-gray-200 bg-gray-50/30'

@@ -27,7 +27,7 @@ export default async function FilaPage({ searchParams }: Props) {
     .order("data_hora", { ascending: true });
 
   return (
-    <div className="p-8 h-full flex flex-col">
+    <div className="h-screen overflow-hidden flex flex-col p-8">
       <FilaKanbanClient
         agendamentos={(agendamentos as Agendamento[]) ?? []}
         dataAtual={dataFiltro}
