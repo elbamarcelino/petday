@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Porte, StatusAgendamento } from '@/types'
+import { ProntuarioTab } from '@/components/ProntuarioTab'
+import type { AgendamentoResumido } from '@/components/ProntuarioTab'
+import type { Porte, StatusAgendamento, Prontuario, Vacina } from '@/types'
 
 interface Props {
   params: Promise<{ petId: string }>
+  searchParams: Promise<{ aba?: string }>
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -54,14 +57,22 @@ function formatarPreco(preco: number) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function PetDetailPage({ params }: Props) {
+export default async function PetDetailPage({ params, searchParams }: Props) {
   const { petId } = await params
+  const { aba } = await searchParams
+  const abaAtiva = aba === 'prontuario' ? 'prontuario' : 'resumo'
+
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
 
-  const [{ data: pet }, { data: agendamentos }] = await Promise.all([
+  const [
+    { data: pet },
+    { data: agendamentos },
+    { data: prontuarioData },
+    { data: vacinasData },
+  ] = await Promise.all([
     supabase
       .from('pets')
       .select('*, cliente:clientes(id, nome, telefone, email)')
@@ -75,6 +86,16 @@ export default async function PetDetailPage({ params }: Props) {
       `)
       .eq('pet_id', petId)
       .order('data_hora', { ascending: false }),
+    supabase
+      .from('prontuarios')
+      .select('*')
+      .eq('pet_id', petId)
+      .maybeSingle(),
+    supabase
+      .from('vacinas')
+      .select('*')
+      .eq('pet_id', petId)
+      .order('data_aplicacao', { ascending: false }),
   ])
 
   if (!pet) notFound()
@@ -93,8 +114,31 @@ export default async function PetDetailPage({ params }: Props) {
   const fotos = agendamentosComUrl.filter((ag) => ag.fotoUrl !== null)
   const cliente = pet.cliente as { id: string; nome: string; telefone: string; email: string } | null
 
+  const prontuario = prontuarioData as Prontuario | null
+  const vacinas = (vacinasData ?? []) as Vacina[]
+
+  const agendamentosResumidos: AgendamentoResumido[] = agendamentosComUrl.map((ag) => ({
+    id: ag.id,
+    data_hora: ag.data_hora,
+    status: ag.status as StatusAgendamento,
+    preco_cobrado: ag.preco_cobrado,
+    observacoes: ag.observacoes ?? null,
+    fotoUrl: ag.fotoUrl,
+    servicos: (ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
+      ?.map((as) => as.servico?.nome)
+      .filter(Boolean)
+      .join(', ') ?? '',
+  }))
+
+  const tabCls = (tab: string) =>
+    `px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+      abaAtiva === tab
+        ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+        : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+    }`
+
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
 
       {/* Back */}
       <Link
@@ -138,121 +182,142 @@ export default async function PetDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* ── Galeria de fotos ── */}
-      {fotos.length > 0 && (
-        <section>
-          <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">
-            Galeria de fotos
-            <span className="ml-2 text-sm font-normal text-[var(--color-muted-foreground)]">
-              {fotos.length} foto{fotos.length > 1 ? 's' : ''}
-            </span>
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {fotos.map((ag) => (
-              <a
-                key={ag.id}
-                href={ag.fotoUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative rounded-xl overflow-hidden border bg-[var(--color-muted)] aspect-square block"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={ag.fotoUrl!}
-                  alt={`Foto de ${pet.nome} em ${formatarData(ag.data_hora)}`}
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
-                  <p className="text-white text-[11px] font-medium leading-tight">
-                    {formatarData(ag.data_hora)}
-                  </p>
-                  <p className="text-white/70 text-[10px] truncate">
-                    {(ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
-                      ?.map((as) => as.servico?.nome)
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
-                </div>
-              </a>
-            ))}
-          </div>
-        </section>
+      {/* ── Tabs ── */}
+      <div className="border-b flex gap-0">
+        <Link href={`/dashboard/pets/${petId}`} className={tabCls('resumo')}>
+          Resumo
+        </Link>
+        <Link href={`/dashboard/pets/${petId}?aba=prontuario`} className={tabCls('prontuario')}>
+          Prontuário
+        </Link>
+      </div>
+
+      {/* ── Tab: Resumo ── */}
+      {abaAtiva === 'resumo' && (
+        <div className="space-y-8">
+
+          {/* Galeria de fotos */}
+          {fotos.length > 0 && (
+            <section>
+              <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">
+                Galeria de fotos
+                <span className="ml-2 text-sm font-normal text-[var(--color-muted-foreground)]">
+                  {fotos.length} foto{fotos.length > 1 ? 's' : ''}
+                </span>
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {fotos.map((ag) => (
+                  <a
+                    key={ag.id}
+                    href={ag.fotoUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative rounded-xl overflow-hidden border bg-[var(--color-muted)] aspect-square block"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={ag.fotoUrl!}
+                      alt={`Foto de ${pet.nome} em ${formatarData(ag.data_hora)}`}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+                      <p className="text-white text-[11px] font-medium leading-tight">
+                        {formatarData(ag.data_hora)}
+                      </p>
+                      <p className="text-white/70 text-[10px] truncate">
+                        {(ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
+                          ?.map((as) => as.servico?.nome)
+                          .filter(Boolean)
+                          .join(', ')}
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Histórico de agendamentos */}
+          <section>
+            <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">
+              Histórico de agendamentos
+              <span className="ml-2 text-sm font-normal text-[var(--color-muted-foreground)]">
+                {agendamentosComUrl.length} agendamento{agendamentosComUrl.length !== 1 ? 's' : ''}
+              </span>
+            </h2>
+
+            {agendamentosComUrl.length === 0 ? (
+              <div className="bg-[var(--color-card)] rounded-2xl border px-6 py-12 text-center text-[var(--color-muted-foreground)] text-sm">
+                Nenhum agendamento encontrado para este pet.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {agendamentosComUrl.map((ag) => {
+                  const servicos = (ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
+                    ?.map((as) => as.servico?.nome)
+                    .filter(Boolean)
+                    .join(', ') ?? '—'
+                  const status = ag.status as StatusAgendamento
+                  return (
+                    <div
+                      key={ag.id}
+                      className="bg-[var(--color-card)] rounded-2xl border px-5 py-4 flex items-center gap-4"
+                    >
+                      <div className="shrink-0 text-center bg-[var(--color-muted)] rounded-xl px-3 py-2 min-w-[56px]">
+                        <p className="text-lg font-bold text-[var(--color-foreground)] leading-none">
+                          {new Date(ag.data_hora).getDate().toString().padStart(2, '0')}
+                        </p>
+                        <p className="text-[10px] font-semibold text-[var(--color-muted-foreground)] uppercase">
+                          {new Date(ag.data_hora).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                        </p>
+                        <p className="text-[10px] text-[var(--color-muted-foreground)]">
+                          {new Date(ag.data_hora).getFullYear()}
+                        </p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{servicos}</p>
+                        <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">
+                          {formatarDataHora(ag.data_hora).split(',')[1]?.trim() ?? ''} · {formatarPreco(ag.preco_cobrado)}
+                        </p>
+                        {ag.observacoes && (
+                          <p className="text-xs text-[var(--color-muted-foreground)] mt-1 truncate">
+                            {ag.observacoes}
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 flex flex-col items-end gap-1.5">
+                        <span className={`px-2.5 py-0.5 text-xs rounded-full font-semibold ${STATUS_BADGE[status]}`}>
+                          {STATUS_LABEL[status]}
+                        </span>
+                        {ag.fotoUrl && (
+                          <a
+                            href={ag.fotoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-medium text-[var(--color-primary)] hover:underline"
+                          >
+                            📷 ver foto
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
-      {/* ── Histórico de agendamentos ── */}
-      <section>
-        <h2 className="text-lg font-bold text-[var(--color-foreground)] mb-4">
-          Histórico de agendamentos
-          <span className="ml-2 text-sm font-normal text-[var(--color-muted-foreground)]">
-            {agendamentosComUrl.length} agendamento{agendamentosComUrl.length !== 1 ? 's' : ''}
-          </span>
-        </h2>
-
-        {agendamentosComUrl.length === 0 ? (
-          <div className="bg-[var(--color-card)] rounded-2xl border px-6 py-12 text-center text-[var(--color-muted-foreground)] text-sm">
-            Nenhum agendamento encontrado para este pet.
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {agendamentosComUrl.map((ag) => {
-              const servicos = (ag.agendamento_servicos as unknown as { servico?: { nome: string } }[])
-                ?.map((as) => as.servico?.nome)
-                .filter(Boolean)
-                .join(', ') ?? '—'
-              const status = ag.status as StatusAgendamento
-              return (
-                <div
-                  key={ag.id}
-                  className="bg-[var(--color-card)] rounded-2xl border px-5 py-4 flex items-center gap-4"
-                >
-                  {/* Data */}
-                  <div className="shrink-0 text-center bg-[var(--color-muted)] rounded-xl px-3 py-2 min-w-[56px]">
-                    <p className="text-lg font-bold text-[var(--color-foreground)] leading-none">
-                      {new Date(ag.data_hora).getDate().toString().padStart(2, '0')}
-                    </p>
-                    <p className="text-[10px] font-semibold text-[var(--color-muted-foreground)] uppercase">
-                      {new Date(ag.data_hora).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
-                    </p>
-                    <p className="text-[10px] text-[var(--color-muted-foreground)]">
-                      {new Date(ag.data_hora).getFullYear()}
-                    </p>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{servicos}</p>
-                    <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">
-                      {formatarDataHora(ag.data_hora).split(',')[1]?.trim() ?? ''} · {formatarPreco(ag.preco_cobrado)}
-                    </p>
-                    {ag.observacoes && (
-                      <p className="text-xs text-[var(--color-muted-foreground)] mt-1 truncate">
-                        {ag.observacoes}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Status + foto badge */}
-                  <div className="shrink-0 flex flex-col items-end gap-1.5">
-                    <span className={`px-2.5 py-0.5 text-xs rounded-full font-semibold ${STATUS_BADGE[status]}`}>
-                      {STATUS_LABEL[status]}
-                    </span>
-                    {ag.fotoUrl && (
-                      <a
-                        href={ag.fotoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] font-medium text-[var(--color-primary)] hover:underline"
-                      >
-                        📷 ver foto
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+      {/* ── Tab: Prontuário ── */}
+      {abaAtiva === 'prontuario' && (
+        <ProntuarioTab
+          petId={petId}
+          prontuario={prontuario}
+          vacinas={vacinas}
+          agendamentos={agendamentosResumidos}
+        />
+      )}
 
     </div>
   )

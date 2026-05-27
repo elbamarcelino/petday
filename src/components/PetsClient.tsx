@@ -93,6 +93,13 @@ export function PetsClient({ pets, clientes }: Props) {
                   </div>
                 </Link>
 
+                <Link
+                  href={`/dashboard/pets/${p.id}?aba=prontuario`}
+                  className="block px-5 py-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-muted)]/50 transition-colors border-t text-center"
+                >
+                  Ver prontuário →
+                </Link>
+
                 <div className="flex items-center gap-2 px-5 pb-4 pt-3 border-t">
                   <button
                     onClick={() => { setDeleteError(null); setEditing(p) }}

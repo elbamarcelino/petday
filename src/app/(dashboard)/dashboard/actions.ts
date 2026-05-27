@@ -251,6 +251,73 @@ export async function atualizarStatusAgendamento(id: string, status: string): Pr
   return { success: true }
 }
 
+// ─── PRONTUÁRIO ──────────────────────────────────────────────────
+
+export async function salvarProntuario(
+  petId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('prontuarios')
+    .upsert(
+      {
+        petshop_id: usuario.petshop_id,
+        pet_id: petId,
+        alergias: (formData.get('alergias') as string) || null,
+        condicoes_especiais: (formData.get('condicoes_especiais') as string) || null,
+        medicamentos: (formData.get('medicamentos') as string) || null,
+        veterinario: (formData.get('veterinario') as string) || null,
+        nivel_agitacao: (formData.get('nivel_agitacao') as string) || null,
+        aceita_outros_animais: formData.get('aceita_outros_animais') === 'true',
+        observacoes_comportamento: (formData.get('observacoes_comportamento') as string) || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'pet_id' },
+    )
+
+  if (error) return { error: error.message }
+  revalidatePath(`/dashboard/pets/${petId}`)
+  return { success: true }
+}
+
+export async function criarVacina(
+  petId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('vacinas').insert({
+    petshop_id: usuario.petshop_id,
+    pet_id: petId,
+    nome: formData.get('nome') as string,
+    data_aplicacao: formData.get('data_aplicacao') as string,
+    data_vencimento: (formData.get('data_vencimento') as string) || null,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath(`/dashboard/pets/${petId}`)
+  return { success: true }
+}
+
+export async function excluirVacina(id: string, petId: string): Promise<ActionState> {
+  const usuario = await getUsuario()
+  if (!usuario) return { error: 'Não autenticado.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('vacinas').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath(`/dashboard/pets/${petId}`)
+  return { success: true }
+}
+
 export async function enviarFotoWhatsApp(
   agendamentoId: string,
   storagePath: string,

@@ -1,4 +1,5 @@
 export type TipoServico = "banho" | "tosa" | "banho_e_tosa" | "consulta" | "vacina";
+export type NivelAgitacao = "calmo" | "normal" | "agitado" | "agressivo";
 export type StatusAgendamento = "pendente" | "confirmado" | "em_andamento" | "concluido" | "cancelado";
 export type Porte = "pequeno" | "medio" | "grande";
 
@@ -58,6 +59,31 @@ export interface AgendamentoServico {
   agendamento_id: string;
   servico_id: string;
   servico?: Servico;
+}
+
+export interface Prontuario {
+  id: string;
+  petshop_id: string;
+  pet_id: string;
+  alergias: string | null;
+  condicoes_especiais: string | null;
+  medicamentos: string | null;
+  veterinario: string | null;
+  nivel_agitacao: NivelAgitacao | null;
+  aceita_outros_animais: boolean;
+  observacoes_comportamento: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Vacina {
+  id: string;
+  petshop_id: string;
+  pet_id: string;
+  nome: string;
+  data_aplicacao: string;
+  data_vencimento: string | null;
+  created_at: string;
 }
 
 export interface Agendamento {
