@@ -86,6 +86,16 @@ export interface Vacina {
   created_at: string;
 }
 
+export interface CaixaMovimento {
+  id: string;
+  petshop_id: string;
+  tipo: 'entrada' | 'saida';
+  descricao: string;
+  valor: number;
+  data: string;
+  created_at: string;
+}
+
 export interface Agendamento {
   id: string;
   petshop_id: string;
